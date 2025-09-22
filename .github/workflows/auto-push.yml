@@ -1,0 +1,87 @@
+name: Random Auto Commit
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # Run every hour
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Decide whether to run
+        id: decision
+        run: |
+          roll=$((RANDOM % 10))
+          echo "Rolled: $roll"
+          
+          today=$(date -u +%Y-%m-%d)
+          count_file=".runs_$today"
+
+          if [ -f "$count_file" ]; then
+            runs=$(cat "$count_file")
+          else
+            runs=0
+          fi
+
+          echo "Runs today: $runs"
+
+          if [ "$runs" -ge 10 ]; then
+            echo "Max reached, skipping"
+            echo "run=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          hour=$(date -u +%H)
+          if [ "$hour" -eq 23 ] && [ "$runs" -eq 0 ]; then
+            echo "Final chance, forcing run"
+            echo "run=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ "$roll" -lt 3 ]; then
+            echo "Decided to run"
+            echo "run=true" >> $GITHUB_OUTPUT
+          else
+            echo "Skipping"
+            echo "run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Make a change in TypeScript file
+        if: steps.decision.outputs.run == 'true'
+        run: |
+          today=$(date -u +%Y-%m-%d)
+          count_file=".runs_$today"
+
+          if [ -f "$count_file" ]; then
+            runs=$(cat "$count_file")
+          else
+            runs=0
+          fi
+          runs=$((runs+1))
+          echo $runs > $count_file
+
+          # Append a new line to autoCommit.ts
+          mkdir -p src
+          echo "// Commit #$runs on $today at $(TZ=Asia/Karachi date '+%H:%M:%S %Z')" >> src/autoCommit.ts
+
+      - name: Commit changes
+        if: steps.decision.outputs.run == 'true'
+        run: |
+          git config user.name "find-arsla"
+          git config user.email "arslandlodhi2004@gmail.com"
+          git add src/autoCommit.ts .runs_$(date -u +%Y-%m-%d)
+          git commit -m "Automated commit at $(TZ=Asia/Karachi date '+%H:%M:%S %Z')" || echo "No changes"
+
+      - name: Push changes
+        if: steps.decision.outputs.run == 'true'
+        run: git push origin HEAD:${GITHUB_REF_NAME}
