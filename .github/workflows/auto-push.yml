@@ -78,7 +78,7 @@ jobs:
         if: steps.decision.outputs.run == 'true'
         run: |
           git config user.name "find-arslan"
-          git config user.email "arslandlodhi2004@gmail.com"
+          git config user.email "arslanlodhi2004@gmail.com"
           git add src/autoCommit.ts .runs_$(date -u +%Y-%m-%d)
           git commit -m "Automated commit at $(TZ=Asia/Karachi date '+%H:%M:%S %Z')" || echo "No changes"
 
